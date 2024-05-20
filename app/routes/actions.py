@@ -4,12 +4,10 @@ from ..models import *
 
 router = APIRouter()
 
-@router.post("/annoucement/", response_model=AnnouncementResponse, response_model_exclude_none=True, dependencies=[Depends(get_api_key)])
-async def annoucement(request: AnnouncementRequest):
-    filter = request.dict(exclude_none=True) if request else {}
-    instance = CnInfoReports(skip_download_stock_json=True)
+@router.get("/notion/observe/create")
+async def notion_observe_create():
+    return { "success": True }
 
-    annoucements = instance.query_announcements_info(filter)
-    for ann in annoucements:
-        ann['adjunctUrl'] = 'http://static.cninfo.com.cn/' + ann['adjunctUrl']
-    return { "data": annoucements }
+@router.get("/notion/observe/update")
+async def notion_observe_update():
+    return { "success": False }

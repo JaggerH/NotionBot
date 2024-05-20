@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from .routes import actions
-from utilities.set_env import set_env
+from utils.set_env import set_env
 
 set_env()
 app = FastAPI(title="Notion Bot", servers=[{"url": "https://notion-bot.azurewebsites.net"}])

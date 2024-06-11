@@ -1,0 +1,42 @@
+name: NotionBot
+
+channels:
+  - defaults
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/r
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/msys2
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/Paddle/
+dependencies:
+  # --- unstructure ---
+  - python=3.10
+  - pytorch=2.1.2
+  - pywin32
+  # - poppler
+  - torchvision
+  # --- unstructure ---
+  # --- paddle Begin ---
+  - paddlepaddle-gpu==2.6.1.post120 # 必须指定post120为cuda版本号
+  - cudatoolkit=11.6
+  # --- paddle End ---
+  # --- 自定义 Begin ---
+  - pip
+  - faiss-gpu
+  # --- 自定义 End ---
+  - pip:
+    # --- unstructure ---
+    - unstructured[all-docs]
+    - huggingface-hub
+    - layoutparser
+    - paddleclas>=2.4.3
+    # --- unstructure ---
+    # --- 自定义 ---
+    - pandas
+    - azure-functions
+    - fastapi
+    - python-dotenv
+    - notion_client
+    - tushare
+    - langchain
+    - langchain_community
+    - selenium
+    # --- 自定义 ---

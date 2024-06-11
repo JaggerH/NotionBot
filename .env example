@@ -1,0 +1,4 @@
+CHROME_DRIVER=C:\Users\Jagger\Downloads\chromedriver_win32\chromedriver.exe
+TUSHARE_API_KEY=API_KEY
+NOTION_API_KEY=API_KEY
+NOTION_DATABASE_ID=API_KEY

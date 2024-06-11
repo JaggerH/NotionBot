@@ -1,7 +1,7 @@
 import os
 import tushare as ts
-
-pro = ts.pro_api(os.getenv('TUSHARE_APIKEY'))
+print(os.getenv('TUSHARE_API_KEY'))
+pro = ts.pro_api(os.getenv('TUSHARE_API_KEY'))
 
 def stock_basic():
     return pro.stock_basic(**{
@@ -22,3 +22,17 @@ def daily(date):
         "offset": "",
         "limit": ""
     }, fields=[ "ts_code", "trade_date", "open", "high", "low", "close", "pre_close", "change", "pct_chg", "vol", "amount" ])
+
+def find_similar_rows(df, target):
+    """
+    在 symbol 或 name 列中查找包含 target 字符串的行
+    
+    :param df: pandas DataFrame
+    :param target: 目标字符串
+    :return: 包含目标字符串的行的 DataFrame
+
+    target = '万科'
+    result_df = find_similar_rows(df, target)
+    """
+    mask = df['symbol'].str.contains(target, case=False, na=False) | df['name'].str.contains(target, case=False, na=False)
+    return df[mask]

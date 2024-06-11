@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+# Notebooks
+notebooks/data
+notebooks/output
+notebooks/gpt2
+
 # Distribution / packaging
 .Python
 build/

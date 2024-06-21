@@ -125,3 +125,58 @@ def build_observe_data(text, date, pusher):
     })
     return df.to_dict(orient='records')
 
+def array_to_notion_blocks(table, has_column_header=True, has_row_header=True):
+    table_width = len(table[0]) if has_column_header else max(len(row) for row in table)
+
+    # Format as Notion blocks
+    table_block = {
+        "object": "block",
+        "type": "table",
+        "table": {
+            "table_width": table_width,
+            "has_column_header": has_column_header,
+            "has_row_header": has_row_header,
+            "children": []
+        }
+    }
+
+    for row in table:
+        row_block = {
+            "object": "block",
+            "type": "table_row",
+            "table_row": {
+                "cells": [[{"type": "text", "text": {"content": cell}}] for cell in row]
+            }
+        }
+        table_block["table"]["children"].append(row_block)
+
+    return table_block
+
+def find_heading_id(page_blocks_response, heading_text):
+    """
+    查找页面中指定Heading的位置
+    :param page_id: 页面ID
+    :param heading_text: Heading文本内容
+    :return: Heading块的位置
+    """
+    for i, block in enumerate(page_blocks_response['results']):
+        if block['type'] == 'heading_2' and block['heading_2']['rich_text'][0]['text']['content'] == heading_text:
+            return block['id']
+    return None
+
+def add_blocks_after_heading(page_id, heading_text, blocks):
+    """
+    在指定Heading后添加块
+    :param page_id: 页面ID
+    :param heading_text: Heading文本内容
+    :param blocks: 要添加的块
+    """
+    response = notion.blocks.children.list(block_id=page_id)
+    heading = find_heading_id(response, heading_text)
+    if heading is None:
+        print(f"未找到指定的Heading：{heading_text}")
+        return
+    else:
+        notion.blocks.children.append(block_id=page_id, children=blocks, after=heading)
+
+    print(f"已在Heading：{heading_text}后添加内容。")

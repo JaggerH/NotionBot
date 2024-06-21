@@ -6,6 +6,10 @@ __pycache__/
 # C extensions
 *.so
 
+ai_models/
+notebooks/.chainlit
+notebooks/vectorstores
+
 # Notebooks
 notebooks/data
 notebooks/output

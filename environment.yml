@@ -38,5 +38,14 @@ dependencies:
     - tushare
     - langchain
     - langchain_community
+    - langchain-chroma
     - selenium
+    - anytree
+    - cn2an
+    # https://medium.aiplanet.com/implementing-rag-using-langchain-ollama-and-chainlit-on-windows-using-wsl-92d14472f15d
+    - chainlit # chatbot web
+    - gpt4all
+    - sentence-transformers # m3e
+    - huggingface_hub
+    - langchain_huggingface
     # --- 自定义 ---

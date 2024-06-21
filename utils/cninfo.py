@@ -6,6 +6,7 @@ import json
 import time
 import random
 import concurrent.futures
+import threading
 import logging
 
 class cninfo:
@@ -36,6 +37,7 @@ class cninfo:
         else:
             self.market_to_stocks = self.get_stock_json(self.column_to_market)
         self.query_url = 'http://www.cninfo.com.cn/new/hisAnnouncement/query'
+        self.lock = threading.Lock()  # 初始化锁对象
 
     def get_stock_json(self, columns: dict) -> dict:
         client = httpx.Client(headers=self.headers, cookies=self.cookies, timeout=None)
@@ -122,8 +124,15 @@ class cninfo:
         announcement_id = announcement['announcementId']
 
         path_dir = f'data/{sec_code}_{sec_name}'
-        if not os.path.exists(path_dir):
-            os.makedirs(path_dir)
+
+        # 使用锁来确保创建目录的线程安全性
+        with self.lock:
+            if not os.path.exists(path_dir):
+                try:
+                    os.makedirs(path_dir)
+                except FileExistsError:
+                    pass  # 如果目录已经存在，则忽略错误
+
         if adjunct_type != 'PDF':
             self.logger.warning(f'【{sec_code}】{adjunct_url} 不是PDF！')
             return

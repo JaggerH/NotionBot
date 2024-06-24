@@ -93,3 +93,27 @@ def table_to_markdown(table):
         markdown_table.append("| " + " | ".join([str(cell) if cell else "" for cell in row]) + " |")
 
     return "\n".join(markdown_table)
+
+def format_documents_vscode(documents):
+    """
+    Used to print documents in vscode
+    """
+    separator_in_page = '-' * 50
+    separator = "=" * 50
+
+    for doc in documents:
+        page_content = doc.page_content
+        metadata = doc.metadata
+        
+        # Format metadata
+        # formatted_metadata = f"Metadata:\nPage: {metadata['page']}\nSource: {metadata['source']}"
+        formatted_metadata = str(metadata)
+        
+        # Format page content with line breaks
+        formatted_content = "\n".join(page_content.split("\n"))
+        
+        # Print formatted content and metadata
+        print("Page Content:\n" + formatted_content)
+        print(separator_in_page)
+        print(formatted_metadata)
+        print(separator + "\n")

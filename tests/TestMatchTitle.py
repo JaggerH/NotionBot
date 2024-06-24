@@ -1,6 +1,7 @@
 import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'utils')))
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'utils')))
+sys.path.append('..')
 
 import unittest
 from utils.pdf_helper import match_title
@@ -28,7 +29,13 @@ class TestMatchTitle(unittest.TestCase):
             ('4. 报告期内重大资产重组整合的具体进展情况', True),
             ('(三)经营计划', True),
             ('无匹配内容', False),
-            ('10.未匹配的内容', True)
+            ('10. 匹配的内容', True),
+            ('10.未匹配的内容', False),
+            ('2023 年公司销售各类整车及底盘 59.25 万辆，同比增长 18.4%', False),
+            ('2.1 2023年核心技术创新', True),
+            ('2.1.1 坚持长期投入，掌控底层核心技术', True),
+            ('34.41 亿元。在“双碳”战略引领下', False),
+            ('1 名，四川省技术能手 4 名', False),
         ]
 
         for test_string, expected in test_strings:

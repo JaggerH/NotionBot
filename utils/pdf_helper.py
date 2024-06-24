@@ -12,7 +12,30 @@ from PIL import Image
 
 paddleocr.logging.disable(logging.DEBUG)
 logger = logging.getLogger('pdf_helper')
-ocr_engine = PPStructure(table=False, ocr=True) # 在这里初始化可以节省后续加载时间
+
+class LazyPaddleEngine:
+    def __init__(self):
+        self._ocr_engine = None
+
+    @property
+    def ocr_engine(self):
+        if self._ocr_engine is None:
+            self._ocr_engine = PPStructure(table=False, ocr=True)
+        return self._ocr_engine
+    
+lazy_paddle_engine = LazyPaddleEngine()
+# ocr_engine = lazy_paddle_engine.ocr_engine
+
+title_patterns = {
+    'chinese_brackets': r"（[一二三四五六七八九十]+）",
+    'arabic_brackets': r"\([一二三四五六七八九十]+\)",
+    'chinese_number_comma': r"[一二三四五六七八九十]+、",
+    'arabic_number_comma': r"[1-9]\d*、",
+    'arabic_number_dot': r"[1-9]\d*\.\s+",
+    # 'arabic_dot_level': r"\d+(\.\d+)+\s+", # 2.1.1
+    'arabic_dot_level': r"\d+(\.\d+)+(?=\s(?!.*\b(亿元|元|名|%)))", # 2.1.1
+}
+
 #=========================================
 #              通用方法
 # 以下内容都是对PDF的处理具有通用意义的
@@ -237,7 +260,7 @@ def extract_chapters(pdf_path):
 #=========================================
 def recongize_layout(image):
     img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-    page_layout = ocr_engine(img)
+    page_layout = lazy_paddle_engine.ocr_engine(img)
     for line in page_layout: line.pop('img')
     return page_layout
 
@@ -250,6 +273,18 @@ def debug_layout(image, page_layout):
 #=========================================
 #       根据page_layout提取页面内容
 #=========================================
+def bbox_correct(table_layout, page_bbox):
+    """
+    这个函数存在时因为有时候pdfplumber会抽风，生成的table bbox区间会超出页面
+    """
+    bbox = table_layout['bbox']
+    bbox[0] = bbox[0] if bbox[0] >= 0 else 0
+    bbox[1] = bbox[1] if bbox[1] >= 0 else 0
+    bbox[2] = bbox[2] if bbox[2] <= page_bbox[2] else page_bbox[2]
+    bbox[3] = bbox[3] if bbox[3] <= page_bbox[3] else page_bbox[3]
+    table_layout['bbox'] = bbox
+    return table_layout
+    
 def get_header_bottom_border(page_layout):
     headers = [block for block in page_layout if block['type'] == 'header']
     bottom_borders = [header['bbox'][3] for header in headers]
@@ -307,10 +342,9 @@ def extract_content(page, page_layout):
     footer_top_border = get_footer_top_border(page_layout, height)
     
     _page_layout = [{'type': 'text', 'bbox': [0, header_bottom_border, width, footer_top_border]}]
-    tables = [block for block in page_layout if block['type'] == 'table']
+    tables = [bbox_correct(block, [0, 0, width, height]) for block in page_layout if block['type'] == 'table']
     for table in tables:
         _page_layout = split_page_layout_by_table(_page_layout, table, width, height)
-    
     page_content = ""
     for block in _page_layout:
         if block['type'] == 'text':
@@ -319,8 +353,9 @@ def extract_content(page, page_layout):
         elif block['type'] == 'table':
             table = block.get('content') or extract_table(page, block['bbox'])
             # 清除Cell中的\n
-            cleaned_table = [[item.replace('\n', '') if isinstance(item, str) else item for item in row] for row in table]
-            page_content += table_to_markdown(cleaned_table) + "\n\n"
+            if table:
+                cleaned_table = [[item.replace('\n', '') if isinstance(item, str) else item for item in row] for row in table]
+                page_content += table_to_markdown(cleaned_table) + "\n\n"
     return page_content
 
 def table_to_markdown(table):
@@ -347,18 +382,14 @@ def ends_with_punct(text):
     return any(text.endswith(punct) for punct in ['。', '!', '?'])
 
 def match_title(text):
-    # 匹配中文括号中的数字
-    chinese_brackets = r"（[一二三四五六七八九十]+）"
-    # 匹配英文括号中的数字
-    arabic_brackets = r"\([一二三四五六七八九十]+\)"
-    # 匹配中文数字加顿号
-    chinese_number_comma = r"[一二三四五六七八九十]+、"
-    # 匹配阿拉伯数字加顿号
-    arabic_number_comma = r"[1-9]\d*、"
-    # 匹配阿拉伯数字加点号
-    arabic_number_dot = r"[1-9]\d*\."
-    # 将各部分合并
-    pattern = f"^({chinese_brackets}|{arabic_brackets}|{chinese_number_comma}|{arabic_number_comma}|{arabic_number_dot})"
+    chinese_brackets = title_patterns.get('chinese_brackets')
+    arabic_brackets = title_patterns.get('arabic_brackets')
+    chinese_number_comma = title_patterns.get('chinese_number_comma')
+    arabic_number_comma = title_patterns.get('arabic_number_comma')
+    arabic_number_dot = title_patterns.get('arabic_number_dot')
+    arabic_dot_level = title_patterns.get('arabic_dot_level')
+
+    pattern = f"^({chinese_brackets}|{arabic_brackets}|{chinese_number_comma}|{arabic_number_comma}|{arabic_number_dot}|{arabic_dot_level})"
     return bool(re.match(pattern, text))
 
 def process_text(text):
@@ -393,7 +424,7 @@ def convert_number(text):
 def extract_title_numbers(text):
     pattern = re.compile(r"([一二三四五六七八九十百千万]+|\d+(\.\d+)*)")
     matches = pattern.findall(text)
-    numbers = [convert_number(match[0]) for match in matches]
+    numbers = [convert_number(matches[0][0])]
     return numbers
 
 from anytree import Node        
@@ -406,12 +437,12 @@ class Tree:
         node = self.build_node(title)
         while True:
             if self.pointer.is_root:
-                # print('at root', node)
+                logger.debug('at root', node)
                 node.parent = self.root
                 self.pointer = node
                 break
             relationship = self.get_relationship(node)
-            # print(f'{node} is {self.pointer}\'s {relationship}')
+            logger.debug(f'{node} is {self.pointer}\'s {relationship}')
             if relationship == "child":
                 node.parent = self.pointer
                 self.pointer = node
@@ -426,26 +457,28 @@ class Tree:
     
     def get_relationship(self, node):
         try:
-            if self.pointer.type == node.type:
-                if int(node.number) == int(self.pointer.number) + 1:
-                    return "sibling"
-            else:
-                if int(node.number) == 1:
+            if self.pointer.type == node.type and node.type == "arabic_dot_level":
+                pointer_parts = self.pointer.number.split('.')
+                node_parts = node.number.split('.')
+                if len(node_parts) == len(pointer_parts) + 1 and node_parts[:-1] == pointer_parts:
                     return "child"
+                elif len(node_parts) == len(pointer_parts) and node_parts[:-1] == pointer_parts[:-1] and node_parts[-1] != pointer_parts[-1]:
+                    return "sibling"
+                else:
+                    return "uncertain"
+            else:
+                if self.pointer.type == node.type:
+                    if int(node.number) == int(self.pointer.number) + 1:
+                        return "sibling"
+                else:
+                    if int(node.number) == 1:
+                        return "child"
         except Exception as e:
-            print(e)
+            # print(e)
             return "uncertain"
     
-    def build_node(self, title):
-        patterns = {
-            'chinese_brackets': r"（[一二三四五六七八九十]+）",
-            'arabic_brackets': r"\([一二三四五六七八九十]+\)",
-            'chinese_number_comma': r"[一二三四五六七八九十]+、",
-            'arabic_number_comma': r"[1-9]\d*、",
-            'arabic_number_dot': r"[1-9]\d*\."
-        }
-        
-        for pattern_name, pattern in patterns.items():
+    def build_node(self, title):        
+        for pattern_name, pattern in title_patterns.items():
             pattern = f"^{pattern}"
             match = re.match(pattern, title)
             if match:
@@ -554,7 +587,13 @@ def debug_page(path, page_num, page_layout):
 
 def read_management_chapter(path):
     chapters = extract_chapters(path)
-    start_page, end_page, start_title, end_title = chapter_range(chapters, "管理层讨论与分析")
+    keywords = ["管理层讨论与分析", "董事会报告"]
+    for keyword in keywords:
+        try:
+            start_page, end_page, start_title, end_title = chapter_range(chapters, keyword)
+            break
+        except:
+            continue
     
     result = []
     page_content = ""
